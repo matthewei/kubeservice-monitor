@@ -44,4 +44,7 @@ $ vim value.yaml #编辑环境配置
   # 修改Target的Namespace
   
 $ make install   ## 部署
+
 $ make uninstall ## 卸载
+
+
