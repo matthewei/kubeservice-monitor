@@ -29,8 +29,7 @@ kubelet、apiserver、scheduler、etcd 、coreDns、kube-proxy和 controller man
 Helm部署
 $ cd kubeservice-monitor
 
-$ vim value.yaml #编辑环境配置
-  # 修改Target的Namespace
+$ vim value.yaml #编辑环境配置 例如：修改Target的Namespace
 
 $ helm install kubeservice-monitor .   ## 部署
 
@@ -40,8 +39,7 @@ $ helm delete kubeservice-monitor  --namespace **** ## 卸载
 Make命令部署
 $ cd kubeservice-monitor
 
-$ vim value.yaml #编辑环境配置
-  # 修改Target的Namespace
+$ vim value.yaml #编辑环境配置 例如：修改Target的Namespace
   
 $ make install   ## 部署
 
