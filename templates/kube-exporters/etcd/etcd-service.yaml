@@ -1,0 +1,27 @@
+{{- if and .Values.kubeExporters.etcd.enabled .Values.kubeExporters.etcd.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.etcd.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.etcd.namespace }}
+  labels: {{- include "kubeservice-monitor.etcd.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeExporters.etcd.service.ports | nindent 2 }}
+  selector:
+    {{- if .Values.kubeExporters.etcd.service.selector }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.etcd.service.selector "context" $ ) | nindent 4 }}
+    {{- else }}
+    component: etcd
+    {{- end }}
+{{- end }}

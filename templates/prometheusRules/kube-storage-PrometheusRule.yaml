@@ -1,0 +1,54 @@
+{{- if and  .Values.defaultRules.create    .Values.defaultRules.rules.kubeStorage }}
+{{- $targetNamespace := .Values.defaultRules.appNamespacesTarget }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "kubeservice-monitor.kubeStorage.DefinitionsName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeStorage.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  - name: kube-storage-alerting-rules
+    rules:
+    - alert: KubePersistentVolumeFillingUp
+      annotations:
+        message: The PersistentVolume claimed by {{`{{`}} $labels.persistentvolumeclaim {{`}}`}} in Namespace {{`{{`}} $labels.namespace {{`}}`}} is only {{`{{`}} $value | humanizePercentage {{`}}`}} free.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubepersistentvolumefillingup
+      expr: |-
+        kubelet_volume_stats_available_bytes{job=~".*kubelet", namespace=~"{{ $targetNamespace }}", metrics_path="/metrics"}
+          /
+        kubelet_volume_stats_capacity_bytes{job=~".*kubelet", namespace=~"{{ $targetNamespace }}", metrics_path="/metrics"}
+          < 0.03
+      for: 1m
+      labels:
+        severity: critical
+    - alert: KubePersistentVolumeFillingUp
+      annotations:
+        message: Based on recent sampling, the PersistentVolume claimed by {{`{{`}} $labels.persistentvolumeclaim {{`}}`}} in Namespace {{`{{`}} $labels.namespace {{`}}`}} is expected to fill up within four days. Currently {{`{{`}} $value | humanizePercentage {{`}}`}} is available.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubepersistentvolumefillingup
+      expr: |-
+        (
+          kubelet_volume_stats_available_bytes{job=~".*kubelet", namespace=~"{{ $targetNamespace }}", metrics_path="/metrics"}
+            /
+          kubelet_volume_stats_capacity_bytes{job=~".*kubelet", namespace=~"{{ $targetNamespace }}", metrics_path="/metrics"}
+        ) < 0.15
+        and
+        predict_linear(kubelet_volume_stats_available_bytes{job=~".*kubelet", namespace=~"{{ $targetNamespace }}", metrics_path="/metrics"}[6h], 4 * 24 * 3600) < 0
+      for: 1h
+      labels:
+        severity: warning
+    - alert: KubePersistentVolumeErrors
+      annotations:
+        message: The persistent volume {{`{{`}} $labels.persistentvolume {{`}}`}} has status {{`{{`}} $labels.phase {{`}}`}}.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubepersistentvolumeerrors
+      expr: kube_persistentvolume_status_phase{phase=~"Failed|Pending",job=~".*kube-state-metrics"} > 0
+      for: 5m
+      labels:
+        severity: critical
+{{- end }}

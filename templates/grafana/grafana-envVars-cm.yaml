@@ -1,0 +1,24 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "kubeservice-monitor.grafana.fullname" . }}-envvars
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+data:
+  GF_SECURITY_ADMIN_USER: {{ .Values.grafana.admin.user | quote }}
+  GF_PATHS_PLUGINS: "/var/lib/kubeservice-monitor/grafana/plugins"
+  GF_PATHS_PROVISIONING: "/var/lib/kubeservice-monitor/grafana/provisioning"
+  GF_PATHS_CONFIG: "/etc/grafana/grafana.ini"
+  GF_PATHS_DATA: "/var/lib/kubeservice-monitor/grafana"
+  GF_PATHS_LOGS: "/var/lib/kubeservice-monitor/grafana/logs"
+  GF_AUTH_LDAP_ENABLED: {{ .Values.grafana.ldap.enabled | quote }}
+  GF_AUTH_LDAP_CONFIG_FILE: "/var/lib/kubeservice-monitor/grafana/ldap.toml"
+  GF_AUTH_LDAP_ALLOW_SIGN_UP: {{ .Values.grafana.ldap.allowSignUp | quote }}
+{{- end }}

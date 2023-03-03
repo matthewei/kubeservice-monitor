@@ -1,0 +1,29 @@
+{{- if and .Values.kubeExporters.kubeProxy.enabled .Values.kubeExporters.kubeProxy.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.kubeProxy.DefinitionsName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeProxy.labels" . | nindent 4 }}
+    {{- if .Values.kubeExporters.kubeProxy.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeProxy.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.kubeExporters.kubeProxy.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeProxy.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: {{ .Values.kubeExporters.kubeProxy.serviceMonitor.jobLabel }}
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.kubeProxy.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.kubeExporters.kubeProxy.namespace }}
+  endpoints: {{- toYaml .Values.kubeExporters.kubeProxy.serviceMonitor.endpoints | nindent 2 }}
+{{- end }}

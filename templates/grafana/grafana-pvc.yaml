@@ -1,0 +1,27 @@
+{{- if .Values.grafana.persistence.enabled }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "kubeservice-monitor.grafana.PersistentVolumeClaimName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+  {{- if not (empty .Values.grafana.persistence.accessModes) }}
+  {{- range .Values.grafana.persistence.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  {{- else }}
+    - {{ .Values.grafana.persistence.accessMode | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.grafana.persistence.size | quote }}
+  {{ include "kubeservice-monitor.grafana.storageClass" . }}
+{{- end -}}

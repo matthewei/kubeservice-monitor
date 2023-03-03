@@ -1,0 +1,41 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.grafana.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.grafana.annotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.grafana.annotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: {{ .Values.grafana.service.type }}
+  {{- if .Values.grafana.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.grafana.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.grafana.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.grafana.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.grafana.service.clusterIP (eq .Values.grafana.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.grafana.service.clusterIP }}
+  {{- end }}
+  ports:
+  - name: {{ .Values.grafana.service.ports.name }}
+    {{- if eq .Values.grafana.service.type "NodePort"}}
+    nodePort: {{ .Values.grafana.service.ports.nodePort }}
+    {{- end }}
+    port: {{ .Values.grafana.service.ports.port }}
+    protocol: {{ .Values.grafana.service.ports.protocol }}
+    targetPort: {{ .Values.grafana.service.ports.targetPort }}
+  selector: {{- include "kubeservice-monitor.grafana.matchLabels" . | nindent 4 }}
+{{- end }}

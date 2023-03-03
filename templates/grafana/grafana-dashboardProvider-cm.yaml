@@ -1,0 +1,37 @@
+{{- if .Values.grafana.dashboardsProvider.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "kubeservice-monitor.grafana.dashboardProviderName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+data:
+  dashboards.yaml: |-
+    apiVersion: 1
+    providers:
+    - name: 'ProviderDefinitions'
+      orgId: 1
+      # <string, required> name of the dashboard folder. Required
+      folder: kubeservice-monitor
+      # <string> folder UID. will be automatically generated if not specified
+      folderUid: ''
+      # <string, required> provider type. Required
+      type: file
+      # <bool> disable dashboard deletion
+      disableDeletion: false
+      # <bool> enable dashboard editing
+      editable: false
+      # <int> how often Grafana will scan for changed dashboards
+      updateIntervalSeconds: 10
+      options:
+        # <string, required> path to dashboard files on disk. Required
+        path: /var/lib/kubeservice-monitor/grafana/provisioning/dashboards
+        # <bool> enable folders creation for dashboards
+        #foldersFromFilesStructure: true
+{{- end }}

@@ -1,0 +1,41 @@
+{{- if .Values.nodeExporter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.nodeExporter.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.nodeExporter.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.nodeExporter.service.annotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.nodeExporter.service.annotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: {{ .Values.nodeExporter.service.type }}
+  {{- if .Values.nodeExporter.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.nodeExporter.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.nodeExporter.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.nodeExporter.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.nodeExporter.service.clusterIP (eq .Values.nodeExporter.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.nodeExporter.service.clusterIP }}
+  {{- end }}
+  ports:
+  - name: {{ .Values.nodeExporter.service.ports.name }}
+    {{- if eq .Values.nodeExporter.service.type "NodePort"}}
+    nodePort: {{ .Values.nodeExporter.service.ports.nodePort }}
+    {{- end }}
+    port: {{ .Values.nodeExporter.service.ports.port }}
+    protocol: {{ .Values.nodeExporter.service.ports.protocol }}
+    targetPort: {{ .Values.nodeExporter.service.ports.targetPort }}
+  selector: {{- include "kubeservice-monitor.nodeExporter.matchLabels" . | nindent 4 }}
+{{- end }}

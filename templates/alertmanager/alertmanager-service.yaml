@@ -1,0 +1,42 @@
+{{- if .Values.alertmanager.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.alertManagerService.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.alertmanager.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.alertmanager.service.annotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.alertmanager.service.annotations "context" $) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: {{ .Values.alertmanager.service.type }}
+  {{- if .Values.alertmanager.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.alertmanager.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.alertmanager.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.alertmanager.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.alertmanager.service.clusterIP (eq .Values.alertmanager.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.alertmanager.service.clusterIP }}
+  {{- end }}
+  ports:
+    - name: {{ .Values.alertmanager.service.ports.name }}
+      {{- if eq .Values.alertmanager.service.type "NodePort"}}
+      nodePort: {{ .Values.alertmanager.service.ports.nodePort }}
+      {{- end }}
+      port: {{ .Values.alertmanager.service.ports.port }}
+      targetPort: {{ .Values.alertmanager.service.ports.targetPort }}
+  selector:
+    app.kubernetes.io/name: alertmanager
+    alertmanager: {{ template "kubeservice-monitor.alertmanager.fullname" . }}
+{{- end }}

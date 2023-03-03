@@ -1,0 +1,29 @@
+{{- if and .Values.kubeExporters.kubeScheduler.enabled .Values.kubeExporters.kubeScheduler.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.kubeScheduler.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.kubeScheduler.namespace }}
+  labels: {{- include "kubeservice-monitor.kubeScheduler.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeExporters.kubeScheduler.service.ports | nindent 2 }}
+  {{- if not .Values.kubeExporters.kubeScheduler.endpoints }}
+  selector:
+    {{- if .Values.kubeExporters.kubeScheduler.service.selector }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeScheduler.service.selector "context" $ ) | nindent 4 }}
+    {{- else }}
+    component: kube-scheduler
+    {{- end }}
+  {{- end }}
+{{- end }}

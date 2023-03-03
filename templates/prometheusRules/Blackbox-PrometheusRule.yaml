@@ -1,0 +1,104 @@
+{{- if and  .Values.defaultRules.create    .Values.defaultRules.rules.blockboxExporter }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "kubeservice-monitor.blackboxExporter.DefinitionsName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.blackboxExporter.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  - name: Blackbox.rules
+    rules:
+    - alert: HostConnectionFailure
+      expr: probe_success{job="ping-status"} == 0
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        title: Host Connection Failure
+        description: "主机 {{`{{`}} $labels.instance {{`}}`}} cannot be connected"
+
+    - alert: ServiceConnectionFailure
+      expr: probe_success{job="port-status"} == 0
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        title: Service Connection Failure
+        description: "服务 {{`{{`}} $labels.server {{`}}`}} on 主机 {{`{{`}} $labels.instance {{`}}`}} cannot be connected"
+
+    - alert: BlackboxSlowProbeOnServer
+      expr: avg_over_time(probe_duration_seconds{job="port-status"}[1m]) > 1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        title: Service probe timeout
+        description: "服务 {{`{{`}} $labels.server {{`}}`}} on 主机 {{`{{`}} $labels.instance {{`}}`}} Blackbox probe took more than 1s to complete, Current Value: {{`{{`}} $value {{`}}`}}s"
+
+    - alert: BlackboxSlowProbeOnWebsite
+      expr: avg_over_time(probe_duration_seconds{job="http-status"}[1m]) > 1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        title: Service probe timeout
+        description: "网站 {{`{{`}} $labels.instance {{`}}`}} Blackbox probe took more than 1s to complete, Current Value: {{`{{`}} $value {{`}}`}}s"
+
+    - alert: BlackboxProbeHttpFailure
+      expr: probe_http_status_code <= 199 OR probe_http_status_code >= 400
+      for: 0m
+      labels:
+        severity: critical
+        service: web
+      annotations:
+        title: Blackbox probe HTTP failure
+        description: "网站: {{`{{`}} $labels.instance {{`}}`}} HTTP status code is exception, Current status code: {{`{{`}} $value {{`}}`}}"
+
+    - alert: BlackboxSslCertificateWillExpireSoonIn30days
+      expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 30
+      for: 0m
+      labels:
+        severity: warning
+      annotations:
+        title: Blackbox SSL certificate will expire soon
+        description: "网站: {{`{{`}} $labels.instance {{`}}`}} SSL certificate expires in 30 days"
+    - alert: BlackboxSslCertificateWillExpireSoonIn3days
+      expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 3
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        title: Blackbox SSL certificate will expire soon
+        description: "网站: {{`{{`}} $labels.instance {{`}}`}} SSL certificate expires in 3 days"
+    - alert: BlackboxSslCertificateExpired
+      expr: probe_ssl_earliest_cert_expiry - time() <= 0
+      for: 0m
+      labels:
+        severity: critical
+      annotations:
+        title: Blackbox SSL certificate expired
+        description: "网站: {{`{{`}} $labels.instance {{`}}`}} SSL certificate has expired already"
+    - alert: BlackboxProbeSlowHttp
+      expr: avg_over_time(probe_http_duration_seconds[1m]) > 1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        title: Blackbox probe slow HTTP
+        description: "网站: {{`{{`}} $labels.instance {{`}}`}} HTTP request took more than 1s, Current Value: {{`{{`}} $value {{`}}`}}s"
+    - alert: BlackboxProbeSlowPing
+      expr: avg_over_time(probe_icmp_duration_seconds[1m]) > 1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        title: Blackbox probe slow ping
+        description: "主机: {{`{{`}} $labels.instance {{`}}`}} Blackbox ping took more than 1s, Current Value: {{`{{`}} $value {{`}}`}}s"
+{{- end }}

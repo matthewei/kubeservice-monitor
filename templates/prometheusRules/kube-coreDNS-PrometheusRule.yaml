@@ -1,0 +1,35 @@
+{{- if and .Values.kubeExporters.coreDns.enabled .Values.kubeExporters.coreDns.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "kubeservice-monitor.kube-coreDns.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.coreDns.namespace }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: {{ template "kubeservice-monitor.kube-coreDns.DefinitionsName" . }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  - name: kube-coredns-alerting-rules
+    rules:
+    - alert: CorednsPanicCount
+      annotations:
+        summary: CoreDNS Panic Count (instance {{`{{`}} $labels.instance {{`}}`}})
+        description: "Number of CoreDNS panics encountered\n  VALUE = {{`{{`}} $value {{`}}`}}\n  LABELS = {{`{{`}} $labels {{`}}`}}"
+      expr: 'increase(coredns_panics_total[1m]) > 0'
+      for: 0m
+      labels:
+        severity: critical
+    - alert: DnsRequest
+      annotations:
+        summary: DNS 查询速率，每分钟查询超过100告警 (instance {{`{{`}} $labels.instance {{`}}`}})
+        description: "DNS 查询速率，每分钟查询超过100告警\n  VALUE = {{`{{`}} $value {{`}}`}}\n  LABELS = {{`{{`}} $labels {{`}}`}}"
+      expr: sum(irate(coredns_dns_requests_total{zone !="dropped"}[1m])) > 100
+      for: 0m
+      labels:
+        severity: critical
+{{- end}}

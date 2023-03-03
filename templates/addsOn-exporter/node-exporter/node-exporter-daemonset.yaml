@@ -1,0 +1,98 @@
+{{- if .Values.nodeExporter.enabled }}
+apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
+kind: DaemonSet
+metadata:
+  name: {{ template "kubeservice-monitor.nodeExporter.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.nodeExporter.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:  {{- include "kubeservice-monitor.nodeExporter.matchLabels" . | nindent 6 }}
+  updateStrategy: {{- toYaml .Values.nodeExporter.updateStrategy | nindent 4 }}
+  minReadySeconds: {{ .Values.nodeExporter.minReadySeconds }}
+  template:
+    metadata:
+      labels: {{- include "kubeservice-monitor.nodeExporter.labels" . | nindent 8 }}
+        {{- if .Values.nodeExporter.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.nodeExporter.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+      {{- if .Values.nodeExporter.podAnnotations }}
+      annotations: {{- include "common.tplvalues.render" (dict "value" .Values.nodeExporter.podAnnotations "context" $) | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ template "kubeservice-monitor.nodeExporter.serviceAccountName" . }}
+      {{- if .Values.nodeExporter.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" ( dict "value" .Values.nodeExporter.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeExporter.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.nodeExporter.tolerations "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeExporter.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.nodeExporter.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeExporter.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.nodeExporter.terminationGracePeriodSeconds }}
+      {{- end }}
+      containers:
+        - name: node-exporter
+          image: {{ template "kubeservice-monitor.nodeExporter.image" . }}
+          imagePullPolicy: {{ .Values.nodeExporter.image.pullPolicy }}
+          {{- if .Values.nodeExporter.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.nodeExporter.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --web.listen-address=0.0.0.0:{{ .Values.nodeExporter.containerPorts.metrics }}
+            - --no-collector.wifi
+            - --no-collector.hwmon
+            - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/pods/.+)($|/)
+            - --collector.netclass.ignored-devices=^(veth.*|[a-f0-9]{15})$
+            - --collector.netdev.device-exclude=^(veth.*|[a-f0-9]{15})$
+          ports:
+            - name: {{ .Values.nodeExporter.containerPorts.name }}
+              containerPort: {{ .Values.nodeExporter.containerPorts.metrics}}
+              protocol: TCP
+          {{- if .Values.nodeExporter.livenessProbe.enabled }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.nodeExporter.livenessProbe "enabled") "context" $) | nindent 12 }}
+            httpGet:
+              path: /
+              port: {{ .Values.nodeExporter.containerPorts.name }}
+          {{- end }}
+          {{- if .Values.nodeExporter.readinessProbe.enabled }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.nodeExporter.readinessProbe "enabled") "context" $) | nindent 12 }}
+            httpGet:
+              path: /
+              port: {{ .Values.nodeExporter.containerPorts.name }}
+          {{- end }}
+          {{- if .Values.nodeExporter.startupProbe.enabled }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.nodeExporter.startupProbe "enabled") "context" $) | nindent 12 }}
+            tcpSocket:
+              port: {{ .Values.nodeExporter.containerPorts.name }}
+          {{- end }}
+          {{- if .Values.nodeExporter.resources }}
+          resources: {{- toYaml .Values.nodeExporter.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+      hostNetwork: {{ .Values.nodeExporter.hostNetwork }}
+      hostPID: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+{{- end }}

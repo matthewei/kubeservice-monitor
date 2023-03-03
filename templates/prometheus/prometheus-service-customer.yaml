@@ -1,0 +1,39 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeservice-monitor-prometheus
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.prometheus.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+    service_role: ""
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.prometheus.service.annotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.prometheus.service.annotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  {{- if .Values.prometheus.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.prometheus.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.prometheus.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.prometheus.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  clusterIP: None
+  ports:
+  - name: {{ .Values.prometheus.service.ports.name }}
+    port: {{ .Values.prometheus.service.ports.port }}
+    protocol: {{ .Values.prometheus.service.ports.protocol }}
+    targetPort: {{ .Values.prometheus.service.ports.targetPort }}
+  selector:
+    app.kubernetes.io/name: prometheus
+    prometheus: {{ template "kubeservice-monitor.prometheus.fullname" . }}
+{{- end }}

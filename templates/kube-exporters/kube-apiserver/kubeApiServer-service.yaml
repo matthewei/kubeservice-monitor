@@ -1,0 +1,29 @@
+{{- if and .Values.kubeExporters.kubeApiserver.enabled .Values.kubeExporters.kubeApiserver.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.kubeApiserver.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.kubeApiserver.namespace }}
+  labels: {{- include "kubeservice-monitor.kubeApiserver.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeExporters.kubeApiserver.service.ports | nindent 2 }}
+  {{- if not .Values.kubeExporters.kubeApiserver.endpoints }}
+  selector:
+    {{- if .Values.kubeExporters.kubeApiserver.service.selector }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeApiserver.service.selector "context" $ ) | nindent 4 }}
+    {{- else }}
+    component: kube-apiserver
+    {{- end }}
+  {{- end }}
+{{- end }}

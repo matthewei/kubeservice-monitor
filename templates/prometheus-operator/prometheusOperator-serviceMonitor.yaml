@@ -1,0 +1,49 @@
+{{- if and .Values.operator.enabled .Values.operator.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.operator.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.operator.labels" . | nindent 4 }}
+    {{- if .Values.operator.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.operator.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.operator.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.operator.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "common.names.namespace" . | quote }}
+  endpoints:
+  - honorLabels: true
+    port: {{ .Values.operator.serviceMonitor.port }}
+    scheme: {{ .Values.operator.serviceMonitor.scheme }}
+    {{- if .Values.operator.serviceMonitor.bearerTokenFile }}
+    bearerTokenFile: {{ .Values.operator.serviceMonitor.bearerTokenFile }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.tlsConfig.enabled }}
+    tlsConfig: {{- omit .Values.operator.serviceMonitor.tlsConfig "enabled" | toYaml | nindent 6 }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.interval }}
+    interval: {{ .Values.operator.serviceMonitor.interval }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.operator.serviceMonitor.scrapeTimeout }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.metricRelabelings }}
+    metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.operator.serviceMonitor.metricRelabelings "context" $) | nindent 8 }}
+    {{- end }}
+    {{- if .Values.operator.serviceMonitor.relabelings }}
+    relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.operator.serviceMonitor.relabelings "context" $) | nindent 8 }}
+    {{- end }}
+{{- end }}

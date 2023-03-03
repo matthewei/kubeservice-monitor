@@ -1,0 +1,28 @@
+{{- if and .Values.alertmanager.enabled .Values.alertmanager.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.alertmanager.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.alertmanager.labels" . | nindent 4 }}
+    {{- if .Values.alertmanager.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.alertmanager.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.alertmanager.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.alertmanager.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.alertmanager.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "common.names.namespace" . | quote }}
+  endpoints: {{- toYaml .Values.alertmanager.serviceMonitor.endpoints | nindent 2 }}
+{{- end }}

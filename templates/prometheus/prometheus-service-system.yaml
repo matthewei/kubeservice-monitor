@@ -1,0 +1,44 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.prometheus.fullname" . }}-system
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.prometheus.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+    service_role: prometheus-operator
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.prometheus.service.annotations }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.prometheus.service.annotations "context" $) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: {{ .Values.prometheus.service.type }}
+  {{- if .Values.prometheus.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.prometheus.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.prometheus.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.prometheus.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.prometheus.service.clusterIP (eq .Values.prometheus.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.prometheus.service.clusterIP }}
+  {{- end }}
+  ports:
+  - name: {{ .Values.prometheus.service.ports.name }}
+    {{- if eq .Values.prometheus.service.type "NodePort"}}
+    nodePort: {{ .Values.prometheus.service.ports.nodePort }}
+    {{- end }}
+    port: {{ .Values.prometheus.service.ports.port }}
+    protocol: {{ .Values.prometheus.service.ports.protocol }}
+    targetPort: {{ .Values.prometheus.service.ports.targetPort }}
+  selector:
+    app.kubernetes.io/name: prometheus
+    prometheus: {{ template "kubeservice-monitor.prometheus.fullname" . }}
+{{- end }}

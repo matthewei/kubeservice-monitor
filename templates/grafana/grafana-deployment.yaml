@@ -1,0 +1,201 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: {{ include "common.capabilities.deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  name: {{ template "kubeservice-monitor.grafana.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.grafana.replicaCount }}
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.grafana.matchLabels" . | nindent 6 }}
+  {{- if .Values.grafana.updateStrategy }}
+  strategy: {{ include "common.tplvalues.render" (dict "value" .Values.grafana.updateStrategy "context" $) | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels: {{- include "kubeservice-monitor.grafana.labels" . | nindent 8 }}
+        {{- if .Values.grafana.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.grafana.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+      annotations: {}
+    spec:
+      serviceAccountName: {{ template "kubeservice-monitor.grafana.serviceAccountName" . }}
+      {{- if .Values.grafana.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.grafana.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if .Values.grafana.affinity }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.grafana.affinity "context" $) | nindent 8 }}
+      {{- else }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.grafana.podAffinityPreset "component" "grafana" "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.grafana.podAntiAffinityPreset "component" "grafana" "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.grafana.nodeAffinityPreset.type "key" .Values.grafana.nodeAffinityPreset.key "values" .Values.grafana.nodeAffinityPreset.values) | nindent 10 }}
+      {{- end }}
+      {{- if .Values.grafana.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.grafana.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.grafana.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.grafana.tolerations "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.grafana.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.grafana.topologySpreadConstraints "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.grafana.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.grafana.terminationGracePeriodSeconds }}
+      {{- end }}
+      containers:
+        - name: grafana
+          image: {{ template "kubeservice-monitor.grafana.image" . }}
+          imagePullPolicy: {{ .Values.grafana.image.pullPolicy }}
+          {{- if .Values.grafana.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.grafana.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ template "kubeservice-monitor.grafana.fullname" . }}-envvars
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "kubeservice-monitor.grafana.adminSecretName" . }}
+                  key: {{ template "kubeservice-monitor.grafana.adminSecretPasswordKey" . }}
+            {{- if .Values.grafana.smtp.enabled }}
+            - name: GF_SMTP_ENABLED
+              value: "true"
+            {{- if .Values.grafana.smtp.host }}
+            - name: GF_SMTP_HOST
+              value: {{ .Values.grafana.smtp.host }}
+            {{- end }}
+            {{- if .Values.grafana.smtp.fromAddress }}
+            - name: GF_SMTP_FROM_ADDRESS
+              value: {{ .Values.grafana.smtp.fromAddress }}
+            {{- end }}
+            {{- if .Values.grafana.smtp.fromName }}
+            - name: GF_SMTP_FROM_NAME
+              value: {{ .Values.grafana.smtp.fromName }}
+            {{- end }}
+            {{- if .Values.grafana.smtp.skipVerify }}
+            - name: GF_SMTP_SKIP_VERIFY
+              value: "{{ .Values.grafana.smtp.skipVerify }}"
+            {{- end }}
+            - name: GF_SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "grafana.smtpSecretName" . }}
+                  key: {{ include "grafana.smtpSecretUserKey" . }}
+            - name: GF_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "grafana.smtpSecretName" . }}
+                  key: {{ include "grafana.smtpSecretPasswordKey" . }}
+            {{- end }}
+          volumeMounts:
+            - name: grafana-vol
+              mountPath: /var/lib/kubeservice-monitor/grafana
+            {{- if .Values.grafana.dashboardsProvider.enabled }}
+            - name: dashboards-provider
+              mountPath: "/var/lib/kubeservice-monitor/grafana/provisioning/dashboards/default-dashboards.yaml"
+              subPath: "dashboards.yaml"
+            {{- end }}
+
+            {{- if .Values.grafana.ProviderDefinitions.enabled }}
+            {{- $files := .Files.Glob "kubeservice-monitor-dashboards/*.json" }}
+            {{- if $files }}
+            {{- range $path, $fileContents := $files }}
+            {{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+            - name: {{ printf "%s-%s" (include "kubeservice-monitor.grafana.providerDefinitionsName" $) $dashboardName | trunc 63 | trimSuffix "-" }}
+              mountPath: "/var/lib/kubeservice-monitor/grafana/provisioning/dashboards/{{ $dashboardName }}.json"
+              subPath: "{{ $dashboardName }}.json"
+            {{- end }}
+            {{- end }}
+            {{- end }}
+
+            {{- if .Values.grafana.datasources.enabled }}
+            - name: datasources
+              mountPath: /var/lib/kubeservice-monitor/grafana/provisioning/datasources
+            {{- end }}
+
+            {{- if .Values.grafana.notifiers.configMapName }}
+            - name: notifiers
+              mountPath: /var/lib/kubeservice-monitor/grafana/provisioning/notifiers
+            {{- end }}
+            {{- if .Values.grafana.ldap.enabled }}
+            - name: ldap
+              mountPath: /var/lib/kubeservice-monitor/grafana/ldap.toml
+              subPath: ldap.toml
+            {{- end }}
+            {{- if and .Values.grafana.ldap.tls.enabled .Values.grafana.ldap.tls.certificatesSecret }}
+            - name: ldap-tls
+              mountPath: {{ .Values.grafana.ldap.tls.certificatesMountPath }}
+            {{- end }}
+          ports:
+            - name: {{ .Values.grafana.containerPorts.name }}
+              containerPort: {{ .Values.grafana.containerPorts.dashboard }}
+              protocol: TCP
+          resources: {{- toYaml .Values.grafana.resources | nindent 12 }}
+      volumes:
+        - name: grafana-vol
+        {{- if .Values.grafana.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ template "kubeservice-monitor.grafana.PersistentVolumeClaimName" . }}
+        {{- else }}
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.grafana.dashboardsProvider.enabled }}
+        - name: dashboards-provider
+          configMap:
+            name: {{ template "kubeservice-monitor.grafana.dashboardProviderName" . }}
+        {{- end }}
+        {{- if .Values.grafana.ProviderDefinitions.enabled }}
+        - name: dashboards-provider-definitions
+          configMap:
+            name: {{ template "kubeservice-monitor.grafana.providerDefinitionsName" . }}
+        {{- end }}
+
+        {{- if .Values.grafana.ProviderDefinitions.enabled }}
+        {{- $files := .Files.Glob "kubeservice-monitor-dashboards/*.json" }}
+        {{- if $files }}
+        {{- range $path, $fileContents := $files }}
+        {{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+        - name: {{ printf "%s-%s" (include "kubeservice-monitor.grafana.providerDefinitionsName" $) $dashboardName | trunc 63 | trimSuffix "-" }}
+          configMap:
+            name: {{ printf "%s-%s" (include "kubeservice-monitor.grafana.providerDefinitionsName" $) $dashboardName | trunc 63 | trimSuffix "-" }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.grafana.datasources.enabled }}
+        - name: datasources
+          secret:
+            secretName: {{ template "kubeservice-monitor.grafana.datasourceSecretName" $ }}
+        {{- end }}
+        {{- if .Values.grafana.ldap.enabled }}
+        - name: ldap
+          {{- if not (empty .Values.grafana.ldap.configMapName) }}
+          configMap:
+            name: {{ .Values.grafana.ldap.configMapName }}
+          {{- else if not (empty .Values.grafana.ldap.secretName) }}
+          secret:
+            secretName: {{ .Values.grafana.ldap.secretName }}
+          {{- else }}
+          secret:
+            secretName: {{ printf "%s-ldap-conf" (include "common.names.fullname" .) }}
+          {{- end }}
+        {{- end }}
+        {{- if and .Values.grafana.ldap.tls.enabled .Values.grafana.ldap.tls.certificatesSecret }}
+        - name: ldap-tls
+          secret:
+            secretName: {{ .Values.grafana.ldap.tls.certificatesSecret }}
+        {{- end }}
+        {{- if .Values.grafana.notifiers.configMapName }}
+        - name: notifiers
+          configMap:
+            name: {{ .Values.grafana.notifiers.configMapName }}
+        {{- end }}
+{{- end }}

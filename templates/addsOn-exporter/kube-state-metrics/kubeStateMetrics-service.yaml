@@ -1,0 +1,25 @@
+{{- if and .Values.kubeStateMetrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.kubeStateMetrics.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeStateMetrics.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.kubeStateMetrics.service.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeStateMetrics.service.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeStateMetrics.service.ports | nindent 2 }}
+  selector: {{- include "kubeservice-monitor.kubeStateMetrics.matchLabels" . | nindent 4 }}
+{{- end }}

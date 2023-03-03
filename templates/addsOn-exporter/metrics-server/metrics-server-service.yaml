@@ -1,0 +1,37 @@
+{{- if and .Values.metricsServer.enabled (eq .Values.managedCluster false) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.metricsServer.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.metricsServer.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: {{ .Values.metricsServer.service.type }}
+  {{- if .Values.metricsServer.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.metricsServer.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.metricsServer.service.sessionAffinityConfig }}
+  sessionAffinityConfig: {{- include "common.tplvalues.render" (dict "value" .Values.prometheus.service.sessionAffinityConfig "context" $) | nindent 4 }}
+  {{- end }}
+  {{- if and .Values.metricsServer.service.clusterIP (eq .Values.metricsServer.service.type "ClusterIP") }}
+  clusterIP: {{ .Values.metricsServer.service.clusterIP }}
+  {{- end }}
+  ports:
+  - name: {{ .Values.metricsServer.service.ports.name }}
+    {{- if eq .Values.metricsServer.service.type "NodePort"}}
+    nodePort: {{ .Values.metricsServer.service.ports.nodePort }}
+    {{- end }}
+    port: {{ .Values.metricsServer.service.ports.port }}
+    protocol: {{ .Values.metricsServer.service.ports.protocol }}
+    targetPort: {{ .Values.metricsServer.service.ports.targetPort }}
+  selector: {{- include "kubeservice-monitor.metricsServer.matchLabels" . | nindent 4 }}
+{{- end }}

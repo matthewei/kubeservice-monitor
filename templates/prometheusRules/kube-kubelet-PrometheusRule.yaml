@@ -1,0 +1,94 @@
+{{- if and  .Values.defaultRules.create    .Values.defaultRules.rules.kubelet }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ template "kubeservice-monitor.kubeKubelet.DefinitionsName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeKubelet.labels" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+  - name: kube-kubelet-recording-rules
+    rules:
+    - expr: histogram_quantile(0.99, sum(rate(kubelet_pleg_relist_duration_seconds_bucket[5m])) by (instance, le) * on(instance) group_left(node) kubelet_node_name{job=~".*kubelet", metrics_path="/metrics"})
+      labels:
+        quantile: '0.99'
+      record: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile
+    - expr: histogram_quantile(0.9, sum(rate(kubelet_pleg_relist_duration_seconds_bucket[5m])) by (instance, le) * on(instance) group_left(node) kubelet_node_name{job=~".*kubelet", metrics_path="/metrics"})
+      labels:
+        quantile: '0.9'
+      record: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile
+    - expr: histogram_quantile(0.5, sum(rate(kubelet_pleg_relist_duration_seconds_bucket[5m])) by (instance, le) * on(instance) group_left(node) kubelet_node_name{job=~".*kubelet", metrics_path="/metrics"})
+      labels:
+        quantile: '0.5'
+      record: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile
+  - name: kube-kubelet-alerting-rules
+    rules:
+    - alert: KubeNodeNotReady
+      annotations:
+        message: '{{`{{`}} $labels.node {{`}}`}} has been unready for more than 15 minutes.'
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubenodenotready
+      expr: kube_node_status_condition{job=~".*kube-state-metrics",condition="Ready",status="true"} == 0
+      for: 15m
+      labels:
+        severity: warning
+    - alert: KubeNodeUnreachable
+      annotations:
+        message: '{{`{{`}} $labels.node {{`}}`}} is unreachable and some workloads may be rescheduled.'
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubenodeunreachable
+      expr: kube_node_spec_unschedulable{job="kube-state-metrics"} == 1
+      labels:
+        severity: warning
+    - alert: KubeletTooManyPods
+      annotations:
+        message: Kubelet '{{`{{`}} $labels.node {{`}}`}}' is running at {{`{{`}} $value | humanizePercentage {{`}}`}} of its Pod capacity.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubelettoomanypods
+      expr: |-
+        count by(node) (
+          (kube_pod_status_phase{job=~".*kube-state-metrics",phase="Running"} == 1) * on(instance,pod,namespace,cluster) group_left(node) topk by(instance,pod,namespace,cluster) (1, kube_pod_info{job=~".*kube-state-metrics"})
+        )
+        /
+        max by(node) (
+          kube_node_status_capacity{job=~".*kube-state-metrics",resource="pods"} != 1
+        ) > 0.95
+      for: 15m
+      labels:
+        severity: warning
+    - alert: KubeNodeReadinessFlapping
+      annotations:
+        message: The readiness status of node {{`{{`}} $labels.node {{`}}`}} has changed {{`{{`}} $value {{`}}`}} times in the last 15 minutes.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubenodereadinessflapping
+      expr: sum(changes(kube_node_status_condition{status="true",condition="Ready"}[15m])) by (node) > 2
+      for: 15m
+      labels:
+        severity: warning
+    - alert: KubeletPlegDurationHigh
+      annotations:
+        message: The Kubelet Pod Lifecycle Event Generator has a 99th percentile duration of {{`{{`}} $value {{`}}`}} seconds on node {{`{{`}} $labels.node {{`}}`}}.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubeletplegdurationhigh
+      expr: node_quantile:kubelet_pleg_relist_duration_seconds:histogram_quantile{quantile="0.99"} >= 10
+      for: 5m
+      labels:
+        severity: warning
+    - alert: KubeletPodStartUpLatencyHigh
+      annotations:
+        message: Kubelet Pod startup 99th percentile latency is {{`{{`}} $value {{`}}`}} seconds on node {{`{{`}} $labels.node {{`}}`}}.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubeletpodstartuplatencyhigh
+      expr: histogram_quantile(0.99, sum(rate(kubelet_pod_worker_duration_seconds_bucket{job=~".*kubelet", metrics_path="/metrics"}[5m])) by (instance, le)) * on(instance) group_left(node) kubelet_node_name{job=~".*kubelet", metrics_path="/metrics"} > 60
+      for: 15m
+      labels:
+        severity: warning
+    - alert: KubeletDown
+      annotations:
+        message: Kubelet has disappeared from Prometheus target discovery.
+        runbook_url: {{ .Values.defaultRules.runbookUrl }}alert-name-kubeletdown
+      expr: absent(up{job=~".*kubelet", metrics_path="/metrics"} == 1)
+      for: 15m
+      labels:
+        severity: critical
+{{- end}}

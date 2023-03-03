@@ -1,0 +1,1631 @@
+
+global:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  storageClass: ""
+harborRepo: ""
+## @section Common parameters
+##
+managedCluster: true
+## @param kubeVersion Force target Kubernetes version (using Helm capabilities if not set)
+##
+kubeVersion: ""
+## @param nameOverride String to partially override `kubeservice-monitor.name` template with a string (will prepend the release name)
+##
+nameOverride: ""
+## @param fullnameOverride String to fully override `kubeservice-monitor.fullname` template with a string
+##
+fullnameOverride: "kubeservice"
+## @param namespaceOverride String to fully override common.names.namespace
+##
+namespaceOverride: "monitoring"
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+## @param commonLabels Labels to add to all deployed objects
+##
+commonLabels: {}
+## @param extraDeploy Array of extra objects to deploy with the release
+##
+extraDeploy: []
+## @param clusterDomain Kubernetes cluster domain name
+##
+clusterDomain: cluster.local
+
+## Role Based Access
+## ref: https://kubernetes.io/docs/admin/authorization/rbac/
+## @param rbac.create Whether to create and use RBAC resources or not
+## @param rbac.pspEnabled Whether to create a PodSecurityPolicy and bound it with RBAC. WARNING: PodSecurityPolicy is deprecated in Kubernetes v1.21 or later, unavailable in v1.25 or later
+##
+# rbac:
+#   create: true
+#   pspEnabled: true
+## @param Prometheus Operator to the cluster
+##
+operator:
+  enabled: true
+  rbac:
+    create: true
+  image:
+    registry: ""
+    repository: ecloud/prometheus-operator
+    tag: v0.61.1
+    digest: ""
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 300m
+      memory: 300Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: false
+  topologySpreadConstraints: []
+  podSecurityContext:
+    enabled: true
+    runAsNonRoot: true
+    runAsUser: 65534
+  containerSecurityContext:
+    enabled: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param blackboxExporter.nodeAffinityPreset.type Node affinity preset type. Ignored if `blackboxExporter.affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param blackboxExporter.nodeAffinityPreset.key Node label key to match. Ignored if `blackboxExporter.affinity` is set
+    ##
+    key: ""
+    ## @param blackboxExporter.nodeAffinityPreset.values Node label values to match. Ignored if `blackboxExporter.affinity` is set
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  affinity: {}
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  podAnnotations: {}
+  podLabels: {}
+  terminationGracePeriodSeconds: ""
+  logLevel: info
+  ## @param operator.logFormat Log format for Prometheus Operator
+  ##
+  logFormat: logfmt
+  ## @param operator.kubeletService.enabled If true, the operator will create and maintain a service for scraping kubelets
+  ## @param operator.kubeletService.namespace Namespace to deploy the kubelet service
+  ##
+  kubeletService:
+    enabled: true
+    namespace: kube-system
+  ## Prometheus Configmap-reload image to use for reloading configmaps
+  ## defaults to Bitnami Prometheus Operator (ref: https://hub.docker.com/r/bitnami/prometheus-operator/tags/)
+  ##
+  prometheusConfigReloader:
+    image:
+      registry: ""
+      repository: ecloud/prometheus-config-reloader
+      tag: v0.61.1
+      digest: ""
+  prometheusKubeRbacProxy:
+    image:
+      registry: ""
+      repository: ecloud/kube-rbac-proxy
+      tag: v0.13.1
+      digest: ""
+    resources:
+      limits:
+        cpu: 40m
+        memory: 100Mi
+      requests:
+        cpu: 40m
+        memory: 100Mi
+    containerSecurityContext:
+      enabled: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsGroup: 65532
+      runAsNonRoot: true
+      runAsUser: 65532
+  service:
+    type: ClusterIP
+    clusterIP: ""
+    ports:
+    - name: https
+      port: 8443
+      targetPort: https
+    annotations: {}
+    extraPorts: []
+    sessionAffinity: None
+    sessionAffinityConfig: {}
+  serviceMonitor:
+    enabled: true
+    interval: ""
+    metricRelabelings: []
+    relabelings: []
+    scrapeTimeout: ""
+    labels: {}
+    annotations: {}
+    tlsConfig:
+      enabled: true
+      insecureSkipVerify: true
+    port: https
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+
+prometheus:
+  enabled: true
+  rbac:
+    create: true
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: true
+  image:
+    registry: ""
+    repository: ecloud/prometheus
+    tag: v2.40.3
+    digest: ""
+  resources:
+    requests:
+      memory: 400Mi
+  podSecurityContext:
+    enabled: true
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  podMetadata:
+    ## labels:
+    ##   app: prometheus
+    ##   k8s-app: prometheus
+    ##
+    labels: {}
+    annotations: {}
+  volumes: []
+  volumeMounts: []
+  ## @param prometheus.storageSpec Prometheus StorageSpec for persistent data
+  ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/storage.md
+  ##
+  storageSpec: {}
+  persistence:
+    enabled: false
+    storageClass: "rook-ceph-block"
+    accessModes:
+    - ReadWriteOnce
+    size: 10Gi
+    annotations: {}
+  affinity: {}
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param prometheus.nodeAffinityPreset.type Prometheus Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param prometheus.nodeAffinityPreset.key Prometheus Node label key to match Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param prometheus.nodeAffinityPreset.values Prometheus Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  serviceMonitorSelector: {}
+  serviceMonitorNamespaceSelector: {}
+  podMonitorSelector: {}
+  podMonitorNamespaceSelector: {}
+  probeSelector: {}
+  probeNamespaceSelector: {}
+  ruleSelector: {}
+  ruleNamespaceSelector: {}
+
+  shards: 1
+  ## @param prometheus.paused If true, the Operator won't process any Prometheus configuration changes
+  ##
+  paused: false
+  ## @param prometheus.logLevel Log level for Prometheus
+  ##
+  logLevel: info
+  ## @param prometheus.logFormat Log format for Prometheus
+  ##
+  logFormat: logfmt
+  ## @param prometheus.listenLocal ListenLocal makes the Prometheus server listen on loopback
+  ##
+  listenLocal: false
+  ## @param prometheus.enableAdminAPI Enable Prometheus adminitrative API
+  ## ref: https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis
+  ##
+  enableAdminAPI: false
+  ## @param prometheus.enableFeatures Enable access to Prometheus disabled features.
+  ## ref: https://prometheus.io/docs/prometheus/latest/disabled_features/
+  ##
+  enableFeatures: []
+  ## @param prometheus.scrapeInterval Interval between consecutive scrapes
+  ##
+  scrapeInterval: ""
+  ## @param prometheus.evaluationInterval Interval between consecutive evaluations
+  ##
+  evaluationInterval: ""
+  ## @param prometheus.querySpec The query command line flags when starting Prometheus
+  ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/api.md#queryspec
+  ##
+  querySpec: {}
+  ## @param prometheus.retention Metrics retention days
+  ##
+  retention: 1d
+  ## @param prometheus.retentionSize Maximum size of metrics
+  ##
+  retentionSize: ""
+  ## @param prometheus.disableCompaction Disable the compaction of the Prometheus TSDB
+  ## See https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/api.md#prometheusspec
+  ## ref: https://prometheus.io/docs/prometheus/latest/storage/#compaction
+  ##
+  disableCompaction: false
+  ## @param prometheus.walCompression Enable compression of the write-ahead log using Snappy
+  ##
+  walCompression: false
+  ## @param alertmanager.routePrefix Prefix used to register routes, overriding externalUrl route
+  ## Useful for proxies that rewrite URLs.
+  ##
+  routePrefix: /
+  ## @param prometheus.alertingEndpoints Alertmanagers to which alerts will be sent
+  ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/api.md#alertmanagerendpoints
+  ##
+  alertingEndpoints: []
+  service:
+    type: ClusterIP
+    ports:
+      name: web
+      port: 9090
+      nodePort: 32000
+      protocol: TCP
+      targetPort: web
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: ClientIP
+    ## @param prometheus.service.sessionAffinityConfig Additional settings for the sessionAffinity
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 300
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "30s"
+    endpoints:
+    - honorLabels: true
+      port: web
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings: []
+      relabelings:
+      - action: replace
+        regex: (.*)
+        replacement: $1
+        sourceLabels:
+        - __meta_kubernetes_pod_node_name
+        targetLabel: instance
+
+## Configuration for alertmanager
+alertmanager:
+  ## @param alertmanager.enabled Deploy Alertmanager to the cluster
+  ##
+  enabled: false
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  image:
+    registry: ""
+    repository: ecloud/alertmanager
+    tag: v0.22.2
+    digest: ""
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 50m
+      memory: 100Mi
+  podSecurityContext:
+    enabled: true
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  podMetadata:
+    labels: {}
+    annotations: {}
+  volumes: []
+  volumeMounts: []
+  ## @param alertmanager.storageSpec Alertmanager StorageSpec for persistent data
+  ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/Documentation/user-guides/storage.md
+  ##
+  storageSpec: {}
+  persistence:
+    enabled: false
+    storageClass: "rook-ceph-block"
+    accessModes:
+    - ReadWriteOnce
+    size: 5Gi
+    annotations: {}
+  ## Configure pod disruption budgets for Alertmanager
+  ## ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/#specifying-a-poddisruptionbudget
+  ## @param alertmanager.pdb.create Create a pod disruption budget for Alertmanager
+  ## @param alertmanager.pdb.minAvailable Minimum number / percentage of pods that should remain scheduled
+  ## @param alertmanager.pdb.maxUnavailable Maximum number / percentage of pods that may be made unavailable
+  ##
+  pdb:
+    create: true
+    minAvailable: 1
+    maxUnavailable: ""
+  ## Alertmanager Service
+  ##
+  service:
+    type: NodePort
+    ports:
+      name: web
+      port: 9093
+      nodePort: 32008
+      targetPort: web
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: ClientIP
+    ## @param prometheus.service.sessionAffinityConfig Additional settings for the sessionAffinity
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 300
+  ## If true, create a serviceMonitor for alertmanager
+  ##
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "30s"
+    endpoints:
+    - honorLabels: true
+      port: web
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+      metricRelabelings: []
+      relabelings: []
+  ## @param alertmanager.externalUrl External URL used to access Alertmanager
+  ## e.g:
+  ## externalUrl: https://alertmanager.example.com
+  ##
+  externalUrl: ""
+  ## @param alertmanager.affinity Alertmanager Affinity for pod assignment
+  ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ## Note: alertmanager.podAffinityPreset, alertmanager.podAntiAffinityPreset, and alertmanager.nodeAffinityPreset will be ignored when it's set
+  ##
+  affinity: {}
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param alertmanager.nodeAffinityPreset.type Alertmanager Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param alertmanager.nodeAffinityPreset.key Alertmanager Node label key to match Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param alertmanager.nodeAffinityPreset.values Alertmanager Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  ## @param alertmanager.logLevel Log level for Alertmanager
+  ##
+  logLevel: info
+  logFormat: logfmt
+  retention: 120h
+  paused: false
+  listenLocal: false
+  routePrefix: /
+  portName: web
+  alertmanagerSecret:
+    create: true
+    context:
+      global:
+        resolve_timeout: 15m
+      receivers:
+      - name: PrometheusAlert
+        webhook_configs:
+        - url: http://prometheus-alert-center:8080/prometheusalert?type=dd&tpl=prometheus-dd&ddurl=https://oapi.dingtalk.com/robot/send?access_token=0e27786db18035e044f334a04783f0ce98bfe14d88cd4c5800182eabae36c30c&at=14741135335
+          send_resolved: true
+      route:
+        group_by: ["alertname"]
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: 'PrometheusAlert'
+        routes:
+        - receiver: PrometheusAlert
+          match:
+            severity: warning
+  alertmanagerConfig:
+    create: false
+    context:
+      receivers:
+      - name: PrometheusAlert
+        webhookConfigs:
+        - url: http://prometheus-alert-center:8080
+          sendResolved: true
+      route:
+        groupBy: ["alertname"]
+        groupWait: 30s
+        groupInterval: 5m
+        repeatInterval: 12h
+        receiver: test
+        routes:
+        - receiver: test
+          matchers:
+          - name: severity
+            value: warning
+          - name: namespace
+            valuse: ".*"
+        - receiver: 'null'
+          match:
+            alertname: Watchdog
+  ## @param alertmanager.templateFiles Extra files to be added inside the `alertmanager-{{ template "kube-prometheus.alertmanager.fullname" . }}` secret.
+  ##
+  templateFiles: {}
+
+## Kube-Exporters
+##
+kubeExporters:
+  ## Component scraping coreDns
+  ##
+  coreDns:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: coredns-metrics
+        port: 9153
+        protocol: TCP
+        targetPort: 9153
+    serviceMonitor:
+      enabled: true
+      ## @param coreDns.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param coreDns.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: k8s-app
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: coredns-metrics
+        scheme: http
+        interval: "15s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: ""
+        relabelings:
+        - action: keep
+          sourceLabels:
+          - __meta_kubernetes_namespace
+          - __meta_kubernetes_pod_name
+          separator: '/'
+          regex: 'kube-system/coredns.+'
+        - sourceLabels:
+          - __meta_kubernetes_pod_container_port_name
+          action: keep
+          regex: metrics
+        - sourceLabels:
+          - __meta_kubernetes_pod_name
+          action: replace
+          targetLabel: instance
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        ## @param coreDns.serviceMonitor.metricRelabelings Metric relabel configs to apply to samples before ingestion.
+        ## metricRelabelings:
+        ##  - action: keep
+        ##    regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+        ##    sourceLabels: [__name__]
+        ##
+        metricRelabelings: []
+  ## Component scraping etcd
+  ##
+  etcd:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: etcd-metrics
+        port: 2381
+        protocol: TCP
+        targetPort: 2381
+    serviceMonitor:
+      enabled: true
+      ## @param coreDns.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param coreDns.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: k8s-app
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: etcd-metrics
+        scheme: http
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: ""
+        relabelings: []
+        metricRelabelings: []
+  ## Component scraping the kube-apiserver
+  ##
+  kubeApiserver:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: kubeapiserver-metrics
+        port: 6443
+        protocol: TCP
+        targetPort: 6443
+    serviceMonitor:
+      enabled: true
+      ## @param kubeApiserver.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param kubeApiserver.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: component
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: kubeapiserver-metrics
+        scheme: https
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          serverName: kubernetes
+          insecureSkipVerify: true
+        relabelings: []
+        metricRelabelings:
+        - action: drop
+          regex: kubelet_(pod_worker_latency_microseconds|pod_start_latency_microseconds|cgroup_manager_latency_microseconds|pod_worker_start_latency_microseconds|pleg_relist_latency_microseconds|pleg_relist_interval_microseconds|runtime_operations|runtime_operations_latency_microseconds|runtime_operations_errors|eviction_stats_age_microseconds|device_plugin_registration_count|device_plugin_alloc_latency_microseconds|network_plugin_operations_latency_microseconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: scheduler_(e2e_scheduling_latency_microseconds|scheduling_algorithm_predicate_evaluation|scheduling_algorithm_priority_evaluation|scheduling_algorithm_preemption_evaluation|scheduling_algorithm_latency_microseconds|binding_latency_microseconds|scheduling_latency_seconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_(request_count|request_latencies|request_latencies_summary|dropped_requests|storage_data_key_generation_latencies_microseconds|storage_transformation_failures_total|storage_transformation_latencies_microseconds|proxy_tunnel_sync_latency_secs)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: kubelet_docker_(operations|operations_latency_microseconds|operations_errors|operations_timeout)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: reflector_(items_per_list|items_per_watch|list_duration_seconds|lists_total|short_watches_total|watch_duration_seconds|watches_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: etcd_(helper_cache_hit_count|helper_cache_miss_count|helper_cache_entry_count|object_counts|request_cache_get_latencies_summary|request_cache_add_latencies_summary|request_latencies_summary)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: transformation_(transformation_latencies_microseconds|failures_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: (admission_quota_controller_adds|admission_quota_controller_depth|admission_quota_controller_longest_running_processor_microseconds|admission_quota_controller_queue_latency|admission_quota_controller_unfinished_work_seconds|admission_quota_controller_work_duration|APIServiceOpenAPIAggregationControllerQueue1_adds|APIServiceOpenAPIAggregationControllerQueue1_depth|APIServiceOpenAPIAggregationControllerQueue1_longest_running_processor_microseconds|APIServiceOpenAPIAggregationControllerQueue1_queue_latency|APIServiceOpenAPIAggregationControllerQueue1_retries|APIServiceOpenAPIAggregationControllerQueue1_unfinished_work_seconds|APIServiceOpenAPIAggregationControllerQueue1_work_duration|APIServiceRegistrationController_adds|APIServiceRegistrationController_depth|APIServiceRegistrationController_longest_running_processor_microseconds|APIServiceRegistrationController_queue_latency|APIServiceRegistrationController_retries|APIServiceRegistrationController_unfinished_work_seconds|APIServiceRegistrationController_work_duration|autoregister_adds|autoregister_depth|autoregister_longest_running_processor_microseconds|autoregister_queue_latency|autoregister_retries|autoregister_unfinished_work_seconds|autoregister_work_duration|AvailableConditionController_adds|AvailableConditionController_depth|AvailableConditionController_longest_running_processor_microseconds|AvailableConditionController_queue_latency|AvailableConditionController_retries|AvailableConditionController_unfinished_work_seconds|AvailableConditionController_work_duration|crd_autoregistration_controller_adds|crd_autoregistration_controller_depth|crd_autoregistration_controller_longest_running_processor_microseconds|crd_autoregistration_controller_queue_latency|crd_autoregistration_controller_retries|crd_autoregistration_controller_unfinished_work_seconds|crd_autoregistration_controller_work_duration|crdEstablishing_adds|crdEstablishing_depth|crdEstablishing_longest_running_processor_microseconds|crdEstablishing_queue_latency|crdEstablishing_retries|crdEstablishing_unfinished_work_seconds|crdEstablishing_work_duration|crd_finalizer_adds|crd_finalizer_depth|crd_finalizer_longest_running_processor_microseconds|crd_finalizer_queue_latency|crd_finalizer_retries|crd_finalizer_unfinished_work_seconds|crd_finalizer_work_duration|crd_naming_condition_controller_adds|crd_naming_condition_controller_depth|crd_naming_condition_controller_longest_running_processor_microseconds|crd_naming_condition_controller_queue_latency|crd_naming_condition_controller_retries|crd_naming_condition_controller_unfinished_work_seconds|crd_naming_condition_controller_work_duration|crd_openapi_controller_adds|crd_openapi_controller_depth|crd_openapi_controller_longest_running_processor_microseconds|crd_openapi_controller_queue_latency|crd_openapi_controller_retries|crd_openapi_controller_unfinished_work_seconds|crd_openapi_controller_work_duration|DiscoveryController_adds|DiscoveryController_depth|DiscoveryController_longest_running_processor_microseconds|DiscoveryController_queue_latency|DiscoveryController_retries|DiscoveryController_unfinished_work_seconds|DiscoveryController_work_duration|kubeproxy_sync_proxy_rules_latency_microseconds|non_structural_schema_condition_controller_adds|non_structural_schema_condition_controller_depth|non_structural_schema_condition_controller_longest_running_processor_microseconds|non_structural_schema_condition_controller_queue_latency|non_structural_schema_condition_controller_retries|non_structural_schema_condition_controller_unfinished_work_seconds|non_structural_schema_condition_controller_work_duration|rest_client_request_latency_seconds|storage_operation_errors_total|storage_operation_status_count)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: etcd_(debugging|disk|server).*
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_admission_controller_admission_latencies_seconds_.*
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_admission_step_admission_latencies_seconds_.*
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_request_duration_seconds_bucket;(0.15|0.25|0.3|0.35|0.4|0.45|0.6|0.7|0.8|0.9|1.25|1.5|1.75|2.5|3|3.5|4.5|6|7|8|9|15|25|30|50)
+          sourceLabels:
+          - __name__
+          - le
+  ## Component scraping the kube-controller-manager
+  ##
+  kubeControllerManager:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: kubecontrollermanager-metrics
+        port: 10257
+        protocol: TCP
+        targetPort: 10257
+    serviceMonitor:
+      enabled: true
+      ## @param kubeApiserver.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param kubeApiserver.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: {}
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: kubecontrollermanager-metrics
+        scheme: https
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: ""
+          serverName: ""
+          insecureSkipVerify: true
+        relabelings: []
+        metricRelabelings:
+        - action: drop
+          regex: kubelet_(pod_worker_latency_microseconds|pod_start_latency_microseconds|cgroup_manager_latency_microseconds|pod_worker_start_latency_microseconds|pleg_relist_latency_microseconds|pleg_relist_interval_microseconds|runtime_operations|runtime_operations_latency_microseconds|runtime_operations_errors|eviction_stats_age_microseconds|device_plugin_registration_count|device_plugin_alloc_latency_microseconds|network_plugin_operations_latency_microseconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: scheduler_(e2e_scheduling_latency_microseconds|scheduling_algorithm_predicate_evaluation|scheduling_algorithm_priority_evaluation|scheduling_algorithm_preemption_evaluation|scheduling_algorithm_latency_microseconds|binding_latency_microseconds|scheduling_latency_seconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_(request_count|request_latencies|request_latencies_summary|dropped_requests|storage_data_key_generation_latencies_microseconds|storage_transformation_failures_total|storage_transformation_latencies_microseconds|proxy_tunnel_sync_latency_secs)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: kubelet_docker_(operations|operations_latency_microseconds|operations_errors|operations_timeout)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: reflector_(items_per_list|items_per_watch|list_duration_seconds|lists_total|short_watches_total|watch_duration_seconds|watches_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: etcd_(helper_cache_hit_count|helper_cache_miss_count|helper_cache_entry_count|object_counts|request_cache_get_latencies_summary|request_cache_add_latencies_summary|request_latencies_summary)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: transformation_(transformation_latencies_microseconds|failures_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: (admission_quota_controller_adds|admission_quota_controller_depth|admission_quota_controller_longest_running_processor_microseconds|admission_quota_controller_queue_latency|admission_quota_controller_unfinished_work_seconds|admission_quota_controller_work_duration|APIServiceOpenAPIAggregationControllerQueue1_adds|APIServiceOpenAPIAggregationControllerQueue1_depth|APIServiceOpenAPIAggregationControllerQueue1_longest_running_processor_microseconds|APIServiceOpenAPIAggregationControllerQueue1_queue_latency|APIServiceOpenAPIAggregationControllerQueue1_retries|APIServiceOpenAPIAggregationControllerQueue1_unfinished_work_seconds|APIServiceOpenAPIAggregationControllerQueue1_work_duration|APIServiceRegistrationController_adds|APIServiceRegistrationController_depth|APIServiceRegistrationController_longest_running_processor_microseconds|APIServiceRegistrationController_queue_latency|APIServiceRegistrationController_retries|APIServiceRegistrationController_unfinished_work_seconds|APIServiceRegistrationController_work_duration|autoregister_adds|autoregister_depth|autoregister_longest_running_processor_microseconds|autoregister_queue_latency|autoregister_retries|autoregister_unfinished_work_seconds|autoregister_work_duration|AvailableConditionController_adds|AvailableConditionController_depth|AvailableConditionController_longest_running_processor_microseconds|AvailableConditionController_queue_latency|AvailableConditionController_retries|AvailableConditionController_unfinished_work_seconds|AvailableConditionController_work_duration|crd_autoregistration_controller_adds|crd_autoregistration_controller_depth|crd_autoregistration_controller_longest_running_processor_microseconds|crd_autoregistration_controller_queue_latency|crd_autoregistration_controller_retries|crd_autoregistration_controller_unfinished_work_seconds|crd_autoregistration_controller_work_duration|crdEstablishing_adds|crdEstablishing_depth|crdEstablishing_longest_running_processor_microseconds|crdEstablishing_queue_latency|crdEstablishing_retries|crdEstablishing_unfinished_work_seconds|crdEstablishing_work_duration|crd_finalizer_adds|crd_finalizer_depth|crd_finalizer_longest_running_processor_microseconds|crd_finalizer_queue_latency|crd_finalizer_retries|crd_finalizer_unfinished_work_seconds|crd_finalizer_work_duration|crd_naming_condition_controller_adds|crd_naming_condition_controller_depth|crd_naming_condition_controller_longest_running_processor_microseconds|crd_naming_condition_controller_queue_latency|crd_naming_condition_controller_retries|crd_naming_condition_controller_unfinished_work_seconds|crd_naming_condition_controller_work_duration|crd_openapi_controller_adds|crd_openapi_controller_depth|crd_openapi_controller_longest_running_processor_microseconds|crd_openapi_controller_queue_latency|crd_openapi_controller_retries|crd_openapi_controller_unfinished_work_seconds|crd_openapi_controller_work_duration|DiscoveryController_adds|DiscoveryController_depth|DiscoveryController_longest_running_processor_microseconds|DiscoveryController_queue_latency|DiscoveryController_retries|DiscoveryController_unfinished_work_seconds|DiscoveryController_work_duration|kubeproxy_sync_proxy_rules_latency_microseconds|non_structural_schema_condition_controller_adds|non_structural_schema_condition_controller_depth|non_structural_schema_condition_controller_longest_running_processor_microseconds|non_structural_schema_condition_controller_queue_latency|non_structural_schema_condition_controller_retries|non_structural_schema_condition_controller_unfinished_work_seconds|non_structural_schema_condition_controller_work_duration|rest_client_request_latency_seconds|storage_operation_errors_total|storage_operation_status_count)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: etcd_(debugging|disk|request|server).*
+          sourceLabels:
+          - __name__
+  ## Component scraping the kube-proxy
+  ##
+  kubeProxy:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: kubeproxy-metrics
+        port: 10249
+        protocol: TCP
+        targetPort: 10249
+    serviceMonitor:
+      enabled: true
+      ## @param coreDns.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param coreDns.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: k8s-app
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: kubeproxy-metrics
+        scheme: http
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: ""
+        relabelings: []
+        metricRelabelings: []
+  ## Component scraping the kube-scheduler
+  ##
+  kubeScheduler:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: true
+      selector: {}
+      ports:
+      - name: kubescheduler-metrics
+        port: 10259
+        protocol: TCP
+        targetPort: 10259
+    serviceMonitor:
+      enabled: true
+      ## @param kubeScheduler.serviceMonitor.labels Extra labels for the ServiceMonitor
+      ##
+      labels: {}
+      ## @param kubeScheduler.serviceMonitor.annotations Extra annotations for the ServiceMonitor
+      ##
+      annotations: {}
+      jobLabel: component
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: kubescheduler-metrics
+        scheme: https
+        interval: "15s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: ""
+          serverName: ""
+          insecureSkipVerify: true
+        ## @param kubeScheduler.serviceMonitor.metricRelabelings Metric relabeling
+        ## metricRelabelings:
+        ##  - action: keep
+        ##    regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+        ##    sourceLabels: [__name__]
+        ##
+        metricRelabelings: []
+        ## @param kubeScheduler.serviceMonitor.relabelings Relabel configs
+        ## relabelings:
+        ##  - sourceLabels: [__meta_kubernetes_pod_node_name]
+        ##    separator: ;
+        ##    regex: ^(.*)$
+        ##    targetLabel: nodename
+        ##    replacement: $1
+        ##    action: replace
+        ##
+        relabelings: []
+  ## Component scraping for kubelet and kubelet hosted cAdvisor
+  ##
+  kubelet:
+    enabled: true
+    namespace: kube-system
+    service:
+      enabled: false
+      ## selector:
+      ##   component: kube-scheduler
+      ##
+      selector: {}
+      ports: []
+    serviceMonitor:
+      enabled: true
+      labels: {}
+      annotations: {}
+      jobLabel: app.kubernetes.io/name
+      endpoints:
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: https-metrics
+        scheme: https
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: ""
+          serverName: ""
+          insecureSkipVerify: true
+        relabelings:
+        - action: replace
+          sourceLabels:
+          - __metrics_path__
+          targetLabel: metrics_path
+        metricRelabelings:
+        - action: drop
+          regex: kubelet_(pod_worker_latency_microseconds|pod_start_latency_microseconds|cgroup_manager_latency_microseconds|pod_worker_start_latency_microseconds|pleg_relist_latency_microseconds|pleg_relist_interval_microseconds|runtime_operations|runtime_operations_latency_microseconds|runtime_operations_errors|eviction_stats_age_microseconds|device_plugin_registration_count|device_plugin_alloc_latency_microseconds|network_plugin_operations_latency_microseconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: scheduler_(e2e_scheduling_latency_microseconds|scheduling_algorithm_predicate_evaluation|scheduling_algorithm_priority_evaluation|scheduling_algorithm_preemption_evaluation|scheduling_algorithm_latency_microseconds|binding_latency_microseconds|scheduling_latency_seconds)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: apiserver_(request_count|request_latencies|request_latencies_summary|dropped_requests|storage_data_key_generation_latencies_microseconds|storage_transformation_failures_total|storage_transformation_latencies_microseconds|proxy_tunnel_sync_latency_secs)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: kubelet_docker_(operations|operations_latency_microseconds|operations_errors|operations_timeout)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: reflector_(items_per_list|items_per_watch|list_duration_seconds|lists_total|short_watches_total|watch_duration_seconds|watches_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: etcd_(helper_cache_hit_count|helper_cache_miss_count|helper_cache_entry_count|object_counts|request_cache_get_latencies_summary|request_cache_add_latencies_summary|request_latencies_summary)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: transformation_(transformation_latencies_microseconds|failures_total)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: (admission_quota_controller_adds|admission_quota_controller_depth|admission_quota_controller_longest_running_processor_microseconds|admission_quota_controller_queue_latency|admission_quota_controller_unfinished_work_seconds|admission_quota_controller_work_duration|APIServiceOpenAPIAggregationControllerQueue1_adds|APIServiceOpenAPIAggregationControllerQueue1_depth|APIServiceOpenAPIAggregationControllerQueue1_longest_running_processor_microseconds|APIServiceOpenAPIAggregationControllerQueue1_queue_latency|APIServiceOpenAPIAggregationControllerQueue1_retries|APIServiceOpenAPIAggregationControllerQueue1_unfinished_work_seconds|APIServiceOpenAPIAggregationControllerQueue1_work_duration|APIServiceRegistrationController_adds|APIServiceRegistrationController_depth|APIServiceRegistrationController_longest_running_processor_microseconds|APIServiceRegistrationController_queue_latency|APIServiceRegistrationController_retries|APIServiceRegistrationController_unfinished_work_seconds|APIServiceRegistrationController_work_duration|autoregister_adds|autoregister_depth|autoregister_longest_running_processor_microseconds|autoregister_queue_latency|autoregister_retries|autoregister_unfinished_work_seconds|autoregister_work_duration|AvailableConditionController_adds|AvailableConditionController_depth|AvailableConditionController_longest_running_processor_microseconds|AvailableConditionController_queue_latency|AvailableConditionController_retries|AvailableConditionController_unfinished_work_seconds|AvailableConditionController_work_duration|crd_autoregistration_controller_adds|crd_autoregistration_controller_depth|crd_autoregistration_controller_longest_running_processor_microseconds|crd_autoregistration_controller_queue_latency|crd_autoregistration_controller_retries|crd_autoregistration_controller_unfinished_work_seconds|crd_autoregistration_controller_work_duration|crdEstablishing_adds|crdEstablishing_depth|crdEstablishing_longest_running_processor_microseconds|crdEstablishing_queue_latency|crdEstablishing_retries|crdEstablishing_unfinished_work_seconds|crdEstablishing_work_duration|crd_finalizer_adds|crd_finalizer_depth|crd_finalizer_longest_running_processor_microseconds|crd_finalizer_queue_latency|crd_finalizer_retries|crd_finalizer_unfinished_work_seconds|crd_finalizer_work_duration|crd_naming_condition_controller_adds|crd_naming_condition_controller_depth|crd_naming_condition_controller_longest_running_processor_microseconds|crd_naming_condition_controller_queue_latency|crd_naming_condition_controller_retries|crd_naming_condition_controller_unfinished_work_seconds|crd_naming_condition_controller_work_duration|crd_openapi_controller_adds|crd_openapi_controller_depth|crd_openapi_controller_longest_running_processor_microseconds|crd_openapi_controller_queue_latency|crd_openapi_controller_retries|crd_openapi_controller_unfinished_work_seconds|crd_openapi_controller_work_duration|DiscoveryController_adds|DiscoveryController_depth|DiscoveryController_longest_running_processor_microseconds|DiscoveryController_queue_latency|DiscoveryController_retries|DiscoveryController_unfinished_work_seconds|DiscoveryController_work_duration|kubeproxy_sync_proxy_rules_latency_microseconds|non_structural_schema_condition_controller_adds|non_structural_schema_condition_controller_depth|non_structural_schema_condition_controller_longest_running_processor_microseconds|non_structural_schema_condition_controller_queue_latency|non_structural_schema_condition_controller_retries|non_structural_schema_condition_controller_unfinished_work_seconds|non_structural_schema_condition_controller_work_duration|rest_client_request_latency_seconds|storage_operation_errors_total|storage_operation_status_count)
+          sourceLabels:
+          - __name__
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: https-metrics
+        path: /metrics/cadvisor
+        scheme: https
+        interval: "30s"
+        scrapeTimeout: "5s"
+        honorTimestamps: false
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: ""
+          serverName: ""
+          insecureSkipVerify: true
+        relabelings:
+        - action: replace
+          sourceLabels:
+          - __metrics_path__
+          targetLabel: metrics_path
+        metricRelabelings:
+        - action: drop
+          regex: container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)
+          sourceLabels:
+          - __name__
+        - action: drop
+          regex: (container_file_descriptors|container_sockets|container_threads_max|container_threads|container_start_time_seconds|container_last_seen);;
+          sourceLabels:
+          - __name__
+          - pod
+          - namespace
+        - action: drop
+          regex: (container_blkio_device_usage_total);.+
+          sourceLabels:
+          - __name__
+          - container
+      - honorLabels: true # 打开honorLabels主要是为了保持组件原有的label，避免标签被覆盖。
+        port: https-metrics
+        path: /metrics/probes
+        scheme: https
+        interval: "30s"
+        scrapeTimeout: "5s"
+        bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tlsConfig:
+          caFile: ""
+          serverName: ""
+          insecureSkipVerify: true
+        relabelings:
+        - action: replace
+          sourceLabels:
+          - __metrics_path__
+          targetLabel: metrics_path
+        metricRelabelings: []
+
+kubeStateMetrics:
+  enabled: true
+  rbac:
+    create: true
+  serviceAccount:
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  kubeResources:
+    certificatesigningrequests: true
+    configmaps: true
+    cronjobs: true
+    daemonsets: true
+    deployments: true
+    endpoints: true
+    horizontalpodautoscalers: true
+    ingresses: true
+    jobs: true
+    limitranges: true
+    mutatingwebhookconfigurations: true
+    namespaces: true
+    networkpolicies: true
+    nodes: true
+    persistentvolumeclaims: true
+    persistentvolumes: true
+    poddisruptionbudgets: true
+    pods: true
+    replicasets: true
+    replicationcontrollers: true
+    resourcequotas: true
+    secrets: true
+    services: true
+    statefulsets: true
+    storageclasses: true
+    verticalpodautoscalers: false
+    validatingwebhookconfigurations: false
+    volumeattachments: true
+  podSecurityContext:
+    enabled: true
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1001
+    runAsNonRoot: true
+  ## @param hostNetwork Enable hostNetwork mode
+  ##
+  hostNetwork: false
+  terminationGracePeriodSeconds: ""
+  topologySpreadConstraints: []
+  resources:
+    ## Example:
+    ## limits:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    ##
+    limits: {}
+    ## Examples:
+    ## requests:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    ##
+    requests: {}
+  replicaCount: 1
+  podLabels: {}
+  podAnnotations: {}
+  updateStrategy: {}
+  minReadySeconds: 0
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  affinity: {}
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  image:
+    registry: ""
+    repository: ecloud/kube-state-metrics
+    tag: 2.7.0-debian-11-r9
+    digest: ""
+    pullPolicy: IfNotPresent
+  containerPorts:
+    name: kube-state
+    port: 8080
+  service:
+    type: ClusterIP
+    clusterIP: ""
+    ports:
+    - name: kube-state
+      port: 8080
+      targetPort: kube-state
+    annotations: {}
+    extraPorts: []
+    sessionAffinity: None
+    sessionAffinityConfig: {}
+  serviceMonitor:
+    enabled: true
+    jobLabel: ""
+    honorLabels: false
+    interval: ""
+    metricRelabelings:
+    - action: drop
+      regex: kube_endpoint_address_not_ready|kube_endpoint_address_available
+      sourceLabels:
+      - __name__
+    relabelings:
+    - action: labeldrop
+      regex: (pod|service|endpoint|namespace|container)
+    scrapeTimeout: ""
+    labels: {}
+    annotations: {}
+    tlsConfig:
+      enabled: false
+      insecureSkipVerify: true
+    port: kube-state
+    scheme: http
+    bearerTokenFile: {}
+
+metricsServer:
+  enabled: true
+  rbac:
+    create: true
+    pspEnabled: true
+  serviceAccount:
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  image:
+    registry: ""
+    repository: ecloud/metrics-server
+    tag: 0.6.2-debian-11-r0
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+  containerPorts:
+    name: metricshttps
+    https: 8443
+  hostNetwork: false
+  dnsPolicy: "ClusterFirst"
+  extraArgs:
+  # - --kubelet-insecure-tls=true
+  - --kubelet-preferred-address-types=InternalDNS,InternalIP,ExternalDNS,ExternalIP,Hostname
+  - --kubelet-insecure-tls
+  podLabels: {}
+  podAnnotations: {}
+  terminationGracePeriodSeconds: ""
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  pdb:
+    create: false
+    minAvailable: "1"
+    maxUnavailable: "1"
+  nodeAffinityPreset:
+    type: ""
+    key: ""
+    ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  affinity: {}
+  topologySpreadConstraints: []
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  service:
+    type: ClusterIP
+    ports:
+      name: metricshttps
+      port: 443
+      nodePort: "30000"
+      protocol: TCP
+      targetPort: metricshttps
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: ClientIP
+    ## @param prometheus.service.sessionAffinityConfig Additional settings for the sessionAffinity
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 300
+  resources:
+    ## Example:
+    ## limits:
+    ##    cpu: 250m
+    ##    memory: 256Mi
+    limits: {}
+    ## Examples:
+    ## requests:
+    ##    cpu: 250m
+    ##    memory: 256Mi
+    requests: {}
+  startupProbe:
+    enabled: false
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  livenessProbe:
+    enabled: false
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  readinessProbe:
+    enabled: false
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  containerSecurityContext:
+    enabled: true
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1001
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+
+## node-exporter
+##
+nodeExporter:
+  enabled: true
+  rbac:
+    create: true
+  serviceAccount:
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  image:
+    registry: ""
+    repository: ecloud/node-exporter
+    tag: v1.2.2
+    digest: ""
+    pullPolicy: IfNotPresent
+  containerPorts:
+    name: node-exporter
+    metrics: 9100
+  podSecurityContext:
+    enabled: true
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1001
+    runAsNonRoot: true
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  hostNetwork: false
+  minReadySeconds: 0
+  terminationGracePeriodSeconds: ""
+  resources:
+    ## Example:
+    ## limits:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    limits: {}
+    ## Examples:
+    ## requests:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    requests: {}
+  podLabels: {}
+  podAnnotations: {}
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param nodeAffinityPreset.key Node label key to match Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  affinity: {}
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  startupProbe:
+    enabled: false
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  service:
+    type: ClusterIP
+    ports:
+      name: node-exporter
+      port: 9100
+      nodePort: ""
+      protocol: TCP
+      targetPort: node-exporter
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: {}
+    ## @param prometheus.service.sessionAffinityConfig Additional settings for the sessionAffinity
+    sessionAffinityConfig: {}
+    # clientIP:
+    #   timeoutSeconds: 300
+  serviceMonitor:
+    enabled: true
+    jobLabel: ""
+    honorLabels: false
+    interval: ""
+    metricRelabelings: []
+    relabelings:
+    - action: replace
+      regex: (.*)
+      replacement: $1
+      sourceLabels:
+      - __meta_kubernetes_pod_node_name
+      targetLabel: instance
+    scrapeTimeout: ""
+    labels: {}
+    annotations: {}
+    port: node-exporter
+    scheme: http
+    bearerTokenFile: {}
+## HW-exporter
+##
+hwExporter:
+  enabled: false
+  rbac:
+    create: true
+  serviceAccount:
+    create: true
+    name: ""
+    automountServiceAccountToken: true
+    annotations: {}
+  image:
+    registry: ""
+    repository: ecloud/hw-exporter
+    tag: v1.2.2
+    digest: ""
+    pullPolicy: IfNotPresent
+  containerPorts:
+    name: hw-exporter
+    metrics: 9100
+  podSecurityContext:
+    enabled: true
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1001
+    runAsNonRoot: true
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  hostNetwork: true
+  minReadySeconds: 0
+  terminationGracePeriodSeconds: ""
+  resources:
+    ## Example:
+    ## limits:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    limits: {}
+    ## Examples:
+    ## requests:
+    ##    cpu: 100m
+    ##    memory: 128Mi
+    requests: {}
+  podLabels: {}
+  podAnnotations: {}
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param nodeAffinityPreset.key Node label key to match Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  affinity: {}
+  nodeSelector: {}
+  tolerations: []
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 120
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  startupProbe:
+    enabled: false
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  service:
+    type: ClusterIP
+    ports:
+      name: hw-exporter
+      port: 9200
+      nodePort: ""
+      protocol: TCP
+      targetPort: hw-exporter
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: {}
+    ## @param prometheus.service.sessionAffinityConfig Additional settings for the sessionAffinity
+    sessionAffinityConfig: {}
+    # clientIP:
+    #   timeoutSeconds: 300
+  serviceMonitor:
+    enabled: true
+    jobLabel: ""
+    honorLabels: false
+    interval: ""
+    metricRelabelings: []
+    relabelings: []
+    scrapeTimeout: ""
+    labels: {}
+    annotations: {}
+    port: hw-exporter
+    scheme: http
+    bearerTokenFile: {}
+## Configuration for grafana
+grafana:
+  enabled: false
+  replicaCount: 1
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: true
+  image:
+    registry: ""
+    repository: ecloud/grafana
+    tag: 9.2.6
+    digest: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 500m
+      memory: 400Mi
+  podSecurityContext:
+    enabled: true
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1000
+  containerPorts:
+    name: grafa-web
+    dashboard: 3000
+  persistence:
+    enabled: false
+    storageClass: "rook-ceph-block"
+    accessModes:
+    - ReadWriteOnce
+    size: 10Gi
+  affinity: {}
+  podAffinityPreset: ""
+  podAntiAffinityPreset: soft
+  nodeAffinityPreset:
+    ## @param prometheus.nodeAffinityPreset.type Prometheus Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+    ##
+    type: ""
+    ## @param prometheus.nodeAffinityPreset.key Prometheus Node label key to match Ignored if `affinity` is set.
+    ## E.g.
+    ## key: "kubernetes.io/e2e-az-name"
+    ##
+    key: ""
+    ## @param prometheus.nodeAffinityPreset.values Prometheus Node label values to match. Ignored if `affinity` is set.
+    ## E.g.
+    ## values:
+    ##   - e2e-az1
+    ##   - e2e-az2
+    ##
+    values: []
+  nodeSelector: {}
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoExecute
+    operator: Exists
+  pdb:
+    create: true
+    minAvailable: 1
+    maxUnavailable: ""
+  service:
+    type: NodePort
+    ports:
+      name: grafa-web
+      port: 3000
+      nodePort: 32001
+      targetPort: grafa-web
+    clusterIP: ""
+    annotations: {}
+    sessionAffinity: ClientIP
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 300
+  admin:
+    user: "admin"
+    password: "Grafana@123"
+  smtp:
+    enabled: false
+    user: user
+    password: password
+    host: ""
+    fromAddress: ""
+    fromName: ""
+    skipVerify: "false"
+    existingSecret: ""
+    existingSecretUserKey: user
+    existingSecretPasswordKey: password
+  ldap:
+    enabled: false
+    allowSignUp: false
+    configuration: ""
+    configMapName: ""
+    secretName: ""
+    uri: ""
+    binddn: ""
+    bindpw: ""
+    basedn: ""
+    searchAttribute: "uid"
+    searchFilter: ""
+    ## @param ldap.extraConfiguration Extra ldap configuration.
+    ## Example:
+    ##   extraConfiguration: |-
+    ##     # set to true if you want to skip SSL cert validation
+    ##     ssl_skip_verify = false
+    ##     # group_search_filter = "(&(objectClass=posixGroup)(memberUid=%s))"
+    ##     # group_search_filter_user_attribute = "distinguishedName"
+    ##     # group_search_base_dns = ["ou=groups,dc=grafana,dc=org"]
+    ##     # Specify names of the LDAP attributes your LDAP uses
+    ##     [servers.attributes]
+    ##     # member_of = "memberOf"
+    ##     # email =  "email"
+    ##
+    extraConfiguration: ""
+    ## @param ldap.tls.enabled Enabled TLS configuration.
+    ## @param ldap.tls.startTls Use STARTTLS instead of LDAPS.
+    ## @param ldap.tls.skipVerify Skip any SSL verification (hostanames or certificates)
+    ## @param ldap.tls.certificatesMountPath Where LDAP certifcates are mounted.
+    ## @param ldap.tls.certificatesSecret Secret with LDAP certificates.
+    ## @param ldap.tls.CAFilename  CA certificate filename. Should match with the CA entry key in the ldap.tls.certificatesSecret.
+    ## @param ldap.tls.certFilename Client certificate filename to authenticate against the LDAP server. Should match with certificate the entry key in the ldap.tls.certificatesSecret.
+    ## @param ldap.tls.certKeyFilename Client Key filename to authenticate against the LDAP server. Should match with certificate the entry key in the ldap.tls.certificatesSecret.
+    ##
+    tls:
+      enabled: false
+      startTls: false
+      skipVerify: false
+      certificatesMountPath: /opt/bitnami/grafana/conf/ldap/
+      certificatesSecret: ""
+      CAFilename: ""
+      certFilename: ""
+      certKeyFilename: ""
+  dashboardsProvider:
+    enabled: true
+  ProviderDefinitions:
+    enabled: true
+  datasources:
+    enabled: true
+    sourceServiceName: {}
+  ## Create notifiers from a configMap
+  ## The notifiersName must contain the files
+  ## @param notifiers.configMapName Name of a ConfigMap containing Grafana notifiers configuration
+  ##
+  notifiers:
+    configMapName: ""
+
+## Create default rules for monitoring the cluster
+##
+defaultRules:
+  create: true
+  rules:
+    etcd: true
+    kubeApiserver: true
+    kubelet: true
+    kubeScheduler: true
+    kubeStateMetrics: true
+    kubeStorage: true
+    kubeSystemAppResource: true
+    nodeExporter: true
+    blockboxExporter: false
+    customerRules: true
+  ## Runbook url prefix for default rules
+  runbookUrl: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#
+  ## Reduce app namespace alert scope
+  appNamespacesTarget: ".*"

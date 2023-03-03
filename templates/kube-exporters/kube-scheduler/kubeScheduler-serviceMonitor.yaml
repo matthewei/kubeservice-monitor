@@ -1,0 +1,29 @@
+{{- if and .Values.kubeExporters.kubeScheduler.enabled .Values.kubeExporters.kubeScheduler.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.kubeScheduler.DefinitionsName" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeScheduler.labels" . | nindent 4 }}
+    {{- if .Values.kubeExporters.kubeScheduler.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeScheduler.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.kubeExporters.kubeScheduler.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeScheduler.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: component
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.kubeScheduler.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.kubeExporters.kubeScheduler.namespace }}
+  endpoints: {{- toYaml .Values.kubeExporters.kubeScheduler.serviceMonitor.endpoints | nindent 2 }}
+{{- end }}

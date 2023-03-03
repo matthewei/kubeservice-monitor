@@ -1,0 +1,50 @@
+{{- if and .Values.kubeStateMetrics.enabled .Values.kubeStateMetrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.kubeStateMetrics.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.kubeStateMetrics.labels" . | nindent 4 }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeStateMetrics.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeStateMetrics.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  jobLabel: {{ .Values.kubeStateMetrics.serviceMonitor.jobLabel | quote }}
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.kubeStateMetrics.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "common.names.namespace" . | quote }}
+  endpoints:
+  - honorLabels: {{ .Values.kubeStateMetrics.serviceMonitor.honorLabels }}
+    port: {{ .Values.kubeStateMetrics.serviceMonitor.port }}
+    scheme: {{ .Values.kubeStateMetrics.serviceMonitor.scheme }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.bearerTokenFile }}
+    bearerTokenFile: {{ .Values.kubeStateMetrics.serviceMonitor.bearerTokenFile }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.tlsConfig.enabled }}
+    tlsConfig: {{- omit .Values.kubeStateMetrics.serviceMonitor.tlsConfig "enabled" | toYaml | nindent 6 }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.interval }}
+    interval: {{ .Values.kubeStateMetrics.serviceMonitor.interval }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.kubeStateMetrics.serviceMonitor.scrapeTimeout }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.metricRelabelings }}
+    metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.kubeStateMetrics.serviceMonitor.metricRelabelings "context" $) | nindent 8 }}
+    {{- end }}
+    {{- if .Values.kubeStateMetrics.serviceMonitor.relabelings }}
+    relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.kubeStateMetrics.serviceMonitor.relabelings "context" $) | nindent 8 }}
+    {{- end }}
+{{- end }}

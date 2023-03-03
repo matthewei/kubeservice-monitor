@@ -1,0 +1,28 @@
+{{- if and .Values.kubeExporters.coreDns.enabled .Values.kubeExporters.coreDns.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.kube-coreDns.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.coreDns.namespace }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    app.kubernetes.io/component: {{ template "kubeservice-monitor.kube-coreDns.DefinitionsName" . }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeExporters.coreDns.service.ports | nindent 2 }}
+  selector:
+    {{- if .Values.kubeExporters.coreDns.service.selector }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.coreDns.service.selector "context" $ ) | nindent 4 }}
+    {{- else }}
+    k8s-app: kube-dns
+    {{- end }}
+{{- end }}

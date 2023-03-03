@@ -1,0 +1,48 @@
+{{- if and .Values.nodeExporter.enabled   .Values.nodeExporter.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "kubeservice-monitor.nodeExporter.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "kubeservice-monitor.nodeExporter.labels" . | nindent 4 }}
+    {{- if .Values.nodeExporter.serviceMonitor.labels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.nodeExporter.serviceMonitor.labels "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- if .Values.commonAnnotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.nodeExporter.serviceMonitor.annotations }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.nodeExporter.serviceMonitor.annotations "context" $ ) | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "kubeservice-monitor.nodeExporter.matchLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "common.names.namespace" . | quote }}
+  {{- if .Values.nodeExporter.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.nodeExporter.serviceMonitor.jobLabel }}
+  {{- end }}
+  endpoints:
+  - port: {{ .Values.nodeExporter.serviceMonitor.port }}
+    scheme: {{ .Values.nodeExporter.serviceMonitor.scheme }}
+    {{- if .Values.nodeExporter.serviceMonitor.interval }}
+    interval: {{ .Values.nodeExporter.serviceMonitor.interval }}
+    {{- end }}
+    {{- if .Values.nodeExporter.serviceMonitor.scrapeTimeout }}
+    scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+    {{- end }}
+    {{- if .Values.nodeExporter.serviceMonitor.honorLabels }}
+    honorLabels: {{ .Values.nodeExporter.serviceMonitor.honorLabels }}
+    {{- end }}
+    {{- if .Values.nodeExporter.serviceMonitor.relabelings }}
+    relabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.nodeExporter.serviceMonitor.relabelings "context" $) | nindent 4 }}
+    {{- end }}
+    {{- if .Values.nodeExporter.serviceMonitor.metricRelabelings }}
+    metricRelabelings: {{- include "common.tplvalues.render" ( dict "value" .Values.nodeExporter.serviceMonitor.metricRelabelings "context" $) | nindent 4 }}
+    {{- end }}
+{{- end }}

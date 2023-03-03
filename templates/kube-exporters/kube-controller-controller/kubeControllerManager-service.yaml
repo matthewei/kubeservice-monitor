@@ -1,0 +1,26 @@
+{{- if and .Values.kubeExporters.kubeControllerManager.enabled .Values.kubeExporters.kubeControllerManager.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "kubeservice-monitor.kubeControllerManager.DefinitionsName" . }}
+  namespace: {{ .Values.kubeExporters.kubeControllerManager.namespace }}
+  labels: {{- include "kubeservice-monitor.kubeControllerManager.labels" . | nindent 4 }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if semverCompare ">v1.20-0" (include "common.capabilities.kubeVersion" .) }}
+  ipFamilyPolicy: PreferDualStack
+  {{- end }}
+  type: ClusterIP
+  clusterIP: None
+  ports: {{- toYaml .Values.kubeExporters.kubeControllerManager.service.ports | nindent 2 }}
+  {{- if not .Values.kubeExporters.kubeControllerManager.endpoints }}
+  selector:
+    {{- if .Values.kubeExporters.kubeControllerManager.service.selector }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.kubeExporters.kubeControllerManager.service.selector "context" $ ) | nindent 4 }}
+    {{- else }}
+    component: kube-controller-manager
+    {{- end }}
+  {{- end }}
+{{- end }}
